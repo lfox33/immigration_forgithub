@@ -13,17 +13,26 @@ usa.ipums.org
 drop if inrange(gqtype,1,9) 
 drop if age==. 
 tab age speakeng
-drop if speakeng==0  //this will drop out kids under 5.
-drop if school==0   //this would also drop kids under 5 but since we also do speakeng it drops nothing which is a good check.
 
-drop if poverty==0 //drop poverty NAs
+//drop if speakeng==0  //Tara doesn't want to drop kids under 5 so I need to generate a school denominator instead of dropping.
+gen denom_speakeng=0
+replace denom_speakeng=1 if speakeng>0
 
-//29900 Americas NS
-//60099 Africa NA
-//59900 Asia NA
-//80000 to 99900 unknown/uninhabited.
+//drop if school==0   //same issue here.generate a school denominator instead of dropping
+gen denom_school=0
+replace denom_school=1 if school>0
 
-drop if bpld==60099 | bpld==59900 | inrange(bpld, 80000,99900) | bpld==29900
+//generating a education denominator
+gen denom_educd=0
+replace denom_educd=1 if educd>0
+
+tab poverty age if age<5
+//drop if poverty==0 // generate a poverty denominator instead of dropping
+gen denom_poverty=0
+replace denom_poverty=1 if poverty>0
+
+//80000 to 99900 unknown/uninhabited birthplace dropping
+drop if inrange(bpld, 80000,99900) 
 //dropping unused to make run faster
 drop hcovpriv hinsemp hinspur hinstri hcovpub hinscaid hinscare hinsva hinsihs hcovany2 hcovpriv2 hinsemp2 hinspur2 hinstri2 hcovpub2 hinscaid2 hinscare2 hinsva2 
 
@@ -74,6 +83,7 @@ gen pl_africa_e=0
 gen pl_africa_c=0
 gen pl_africa_s=0
 gen pl_unitedstates=0
+gen pl_other=0
 
 replace pl_unitedstates=1 if bpld<12000  
 replace pl_canada_otherNA=1 if inrange(bpld,15000,19900)
@@ -91,7 +101,8 @@ replace pl_africa_e=inrange(bpld,60040,60066)
 replace pl_africa_c=inrange(bpld,60070,60082)
 replace pl_africa_s=inrange(bpld,60090,60096)
 replace pl_oceania=1 if inrange(bpld,70000,71090) 
-
+replace pl_other=1 if bpld==29900 | bpld==60099 |bpld==59900
+//29900 Americas NS
 //60099 Africa NA
 //59900 Asia NA
 //80000 to 99900 unknown/uninhabited.
@@ -290,10 +301,9 @@ replace noncitizen=1 if citizen==3
 //tab speakeng, nolab m 
 //0 is missing values.
 gen foreigneng=0 
-replace foreigneng=1 if  age>4 & foreign==1 & speakeng==1 | speakeng==4 | speakeng==6 
-
+replace foreigneng=1 if  age>4 & foreign==1 & speakeng==1 | inrange(speakeng, 5,6) ///corrected speakeng range...1 is doesn't speake eng, 5 is well, 6 is not well. dont use: 3 only english, 4 sp eng very well.
 gen anyloweng=0 
-replace anyloweng=1 if age>4 & speakeng==1 | speakeng==4 | speakeng==6   ///making this because we don't care if the kid is foreign born or native born, just if the family is.
+replace anyloweng=1 if age>4 & speakeng==1 | speakeng==4 | inrange(speakeng, 5,6)  ///making this because we don't care if the kid is foreign born or native born, just if the family is.
 /*
 Dummy for no 4-year college degree (define for age 25+) 
 Dummy for 4-year college degree (define for 25+) 
@@ -345,11 +355,11 @@ replace tw5_lessBA_10yr_nosch=1 if tw5_lessBA_foreign10yr==1 & inschool==0
 gen tw5_lessBA_5yr_nosch=0
 replace tw5_lessBA_5yr_nosch=1 if tw5_lessBA_foreign5yr==1 & inschool==0
 
-///poverty=0 is n/a code should be okay.
+///poverty=0 is n/a 
 gen pov200=.
 replace pov200=0 if  poverty>199
 replace pov200=1 if inrange(poverty,1,199)
-drop if pov200==.
+//drop if pov200==.  //dont drop N/A... 
 
 gen pov200foreign=0
 replace pov200foreign=1 if pov200==1 & foreign==1
