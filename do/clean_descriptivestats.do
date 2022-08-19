@@ -26,6 +26,18 @@ replace denom_school=1 if school>0
 gen denom_educd=0
 replace denom_educd=1 if educd>0
 
+//gen no education no school denominator for 25
+
+gen denom_noednosch25=0
+replace denom_noednosch25=1 if educd>0 & school>0 & age>24
+
+//gen no education no english denom for 25
+gen denom_noednoeng25=0
+replace denom_noednoeng25=1 if educd>0 & speakeng>0 & age>24
+
+gen denom_kidnoeng=0
+replace denom_kidnoeng=1 if inrange(age, 5, 17) & speakeng>0
+
 tab poverty age if age<5
 //drop if poverty==0 // generate a poverty denominator instead of dropping
 gen denom_poverty=0
@@ -165,27 +177,30 @@ replace age18to24=1 if inrange(age,18,24)
 
 
 //create new education and work variable for lauren.
- 
-gen inschool=0
+///I neeed to redo this if we aren't dropping NAs 
+gen inschool=0   
 replace inschool=1 if school==2 
+
+gen notinschool=0
+replace notinschool=1 if school==1
 
 gen noedu_nowork=0
 gen edu_work=0
 gen edu_nowork=0
 gen noedu_work=0
 
-replace noedu_nowork=1 if ilf==0 & inschool==0 & age18to34==1
+replace noedu_nowork=1 if ilf==0 & notinschool==1 & age18to34==1
 replace edu_work=1 if ilf==1 & inschool==1 & age18to34==1
 replace edu_nowork=1 if ilf==0 & inschool==1 & age18to34==1
-replace noedu_work=1 if ilf==1 & inschool==0 & age18to34==1
+replace noedu_work=1 if ilf==1 & notinschool==1 & age18to34==1
 
 //please note that I restrict to the full range here, and then I collapse to one of the age groups later in the file.
 
 gen edu_lfp=0
-replace edu_lfp=1 if ilf==0 & inschool==0 & age18to34==1
+replace edu_lfp=1 if ilf==0 & notinschool==1 & age18to34==1
 replace edu_lfp=2 if ilf==1 & inschool==1 & age18to34==1
 replace edu_lfp=3 if ilf==0 & inschool==1 & age18to34==1
-replace edu_lfp=4 if ilf==1 & inschool==0 & age18to34==1
+replace edu_lfp=4 if ilf==1 & notinschool==1 & age18to34==1
 tab edu_lfp
 # delimit ;
 label define edulfpbinlbl
@@ -301,9 +316,11 @@ replace noncitizen=1 if citizen==3
 //tab speakeng, nolab m 
 //0 is missing values.
 gen foreigneng=0 
-replace foreigneng=1 if  age>4 & foreign==1 & speakeng==1 | inrange(speakeng, 5,6) ///corrected speakeng range...1 is doesn't speake eng, 5 is well, 6 is not well. dont use: 3 only english, 4 sp eng very well.
+replace foreigneng=1 if  age>4 & foreign==1 & speakeng==1 | inrange(speakeng,5,6)
+///corrected speakeng range...1 is doesn't speake eng, 5 is well, 6 is not well. dont use: 3 only english, 4 sp eng very well.
 gen anyloweng=0 
-replace anyloweng=1 if age>4 & speakeng==1 | speakeng==4 | inrange(speakeng, 5,6)  ///making this because we don't care if the kid is foreign born or native born, just if the family is.
+replace anyloweng=1 if age>4 & speakeng==1 | inrange(speakeng,5,6)  
+///making this because we don't care if the kid is foreign born or native born, just if the family is.
 /*
 Dummy for no 4-year college degree (define for age 25+) 
 Dummy for 4-year college degree (define for 25+) 
@@ -331,6 +348,7 @@ replace tw5_lessBA_foreign=1 if tw5_lessBA==1 & foreign==1
 gen tw5_lessBA_native=0 
 replace tw5_lessBA_native=1 if tw5_lessBA==1 & native==1
 
+
 gen tw5_lessBA_foreignnosch=0 
 replace tw5_lessBA_foreignnosch=1 if tw5_lessBA==1 & foreign==1 & inschool==0
 
@@ -350,10 +368,10 @@ gen tw5_lessBA_noeng=0
 replace tw5_lessBA_noeng=1 if tw5_lessBA==1 & foreigneng==1
 
 gen tw5_lessBA_10yr_nosch=0
-replace tw5_lessBA_10yr_nosch=1 if tw5_lessBA_foreign10yr==1 & inschool==0
+replace tw5_lessBA_10yr_nosch=1 if tw5_lessBA_foreign10yr==1 & notinschool==1
 
 gen tw5_lessBA_5yr_nosch=0
-replace tw5_lessBA_5yr_nosch=1 if tw5_lessBA_foreign5yr==1 & inschool==0
+replace tw5_lessBA_5yr_nosch=1 if tw5_lessBA_foreign5yr==1 & notinschool==1
 
 ///poverty=0 is n/a 
 gen pov200=.
@@ -391,7 +409,8 @@ by serial: gen hh_`v'=0
 by serial: replace hh_`v'=1 if `v'>0	
 
 gen kid_hh_`v'=0
-replace kid_hh_`v'=1 if age5to17==1 & hh_`v'==1  //generates any kid foreign by hh characteristic
+replace kid_hh_`v'=1 if age5to17==1 & hh_`v'==1  
+//generates any kid foreign by hh characteristic
 }
 
 
@@ -462,6 +481,7 @@ restore
 preserve
 drop if age18to34!=1
 drop if labforce==0
+drop if school==0
 gen total=1
 collapse (count) total [pw=perwt], by(edu_lfp age18to24 armedforces foreign)
 export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\calcsforWELB", sheet(ilfedu, modify) firstrow(var) keepcellfmt
@@ -564,10 +584,15 @@ foreach s of varlist for5_bp_* {
 export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\lessdet_foreignorigin", sheet(foreign5yr, modify) firstrow(var) keepcellfmt
 restore
 
-**# gen shares
- 
+
+**# generate GEOID
+tostring puma, gen(strpuma) format(%05.0f)
+gen str3 strstatefip = string(statefip,"%02.0f")
+egen geoid=concat(strstatefip strpuma)
+destring geoid, replace
+save clean_immigration, replace
 use clean_immigration
- 
+**# gen shares 
 //Use the collapse command with person weights to calculate by PUMA: 
 *total pop 
 *Share of Pop that is foreign-born 
@@ -589,25 +614,43 @@ use clean_immigration
 *Share of kids 5-17 <200% poverty & living with any foreign-born person in HH 
 //I'm removing state fips since we haven't been using them
 
-foreach geo of varlist cpuma0010  {
-foreach v of varlist foreign foreign10yr foreign5yr foreign_nohcov foreign5yr_nohcov foreign10yr_nohcov pov200 pov200foreign{
+foreach geo of varlist geoid {
+foreach v of varlist foreign foreign10yr foreign5yr foreign_nohcov foreign5yr_nohcov foreign10yr_nohcov {
 use clean_immigration
 preserve
-gen total=1
+gen total=1  
+//this time total will have everyone since I'm not worried about missings for these variables.
 collapse (sum) `v' total  [pw=perwt], by(`geo')
 gen s_`v'=`v'/total
 export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
-histogram s_`v'
-graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
 
 restore
 
 }
 }
+//just doing poverty variables to handle missings
+foreach geo of varlist geoid {
+foreach v of varlist pov200 pov200foreign {
+use clean_immigration
+preserve
+gen total=1
+drop if pov200==.  
+//I think I have to drop the N/A otherwise it's going to do something weird when I sum the na's in pov200....
+collapse (sum) `v' total  [pw=perwt], by(`geo')
+gen s_`v'=`v'/total
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
 
+restore
+
+}
+}
 //SE redo age restricted collapses. 
-
-foreach geo of varlist cpuma0010 {
+/*
+foreach geo of varlist GEOID {
 foreach v of varlist tw5* {
 use clean_immigration
 preserve
@@ -620,38 +663,90 @@ graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms
 restore
 
 }
-}
+}*/
 
-foreach geo of varlist cpuma0010 {
-foreach v of varlist kid_* {
+//redo tw5 collapses to make sure not dividing by N/As
+
+
+
+foreach geo of varlist geoid {
+foreach v of varlist tw5_lessBA_foreign tw5_lessBA_native tw5_lessBA_5yr_nosch tw5_lessBA_10yr_nosch tw5_lessBA_foreignnosch tw5_lessBA_nativenosch {
 use clean_immigration
 preserve
-collapse (sum) `v' age5to17  [pw=perwt], by(`geo')
-gen s_`v'=`v'/age5to17
+collapse (sum) `v' denom_noednosch25 [pw=perwt], by(`geo')
+gen s_`v'=`v'/denom_noednosch25
 export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
 
-histogram s_`v'
-graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
 restore
 
 }
 }
 
-foreach geo of varlist cpuma0010 {
+foreach geo of varlist geoid {
+foreach v of varlist tw5_lessBA_noeng {
+use clean_immigration
+preserve
+collapse (sum) `v' denom_noednoeng25 [pw=perwt], by(`geo')
+gen s_`v'=`v'/denom_noednoeng25
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
+
+restore
+
+}
+}
+
+
+
+foreach geo of varlist geoid {
+foreach v of varlist kid_noeng_foreignhh {
+use clean_immigration
+preserve
+collapse (sum) `v' denom_kidnoeng  [pw=perwt], by(`geo')
+gen s_`v'=`v'/denom_kidnoeng
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
+restore
+
+}
+}
+
+///doing this variable both ways as instructed 5-17 and 5-17pov200
+foreach geo of varlist geoid {
 foreach v of varlist kid_foreignhh_200pov {
 use clean_immigration
 preserve
+drop if pov200==.
 collapse (sum) `v' kid_pov200  [pw=perwt], by(`geo')
 gen s_`v'=`v'/kid_pov200
-export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_200, modify) firstrow(var) keepcellfmt
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
 
-histogram s_`v'
-graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
 restore
 
 }
 }
+foreach geo of varlist geoid {
+foreach v of varlist kid_foreignhh_200pov {
+use clean_immigration
 preserve
+drop if pov200==.
+collapse (sum) `v' age5to17 [pw=perwt], by(`geo')
+gen s_`v'=`v'/age5to17
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_200, modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
+restore
+
+}
+}
 
 **# summary stats
 
