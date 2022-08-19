@@ -13,6 +13,16 @@ usa.ipums.org
 drop if inrange(gqtype,1,9) 
 drop if age==. 
 tab age speakeng
+//80000 to 99900 unknown/uninhabited birthplace dropping
+drop if inrange(bpld, 80000,99900) 
+//dropping unused to make run faster
+drop hcovpriv hinsemp hinspur hinstri hcovpub hinscaid hinscare hinsva hinsihs hcovany2 hcovpriv2 hinsemp2 hinspur2 hinstri2 hcovpub2 hinscaid2 hinscare2 hinsva2 
+
+drop inc* rac* pred*
+//drop if inrange(empstatd,14,15) //drop armed forces?
+//drop if labforce==0  //drop if laborforce status is NA?
+
+//I had previously dropped laborforce==0 which was a mistake. It removes all of the children...when I do the collapse on the laborforce variable I need to just restrict to the age bins and ignore all else because the missing values are kids.
 
 //drop if speakeng==0  //Tara doesn't want to drop kids under 5 so I need to generate a school denominator instead of dropping.
 gen denom_speakeng=0
@@ -43,40 +53,8 @@ tab poverty age if age<5
 gen denom_poverty=0
 replace denom_poverty=1 if poverty>0
 
-//80000 to 99900 unknown/uninhabited birthplace dropping
-drop if inrange(bpld, 80000,99900) 
-//dropping unused to make run faster
-drop hcovpriv hinsemp hinspur hinstri hcovpub hinscaid hinscare hinsva hinsihs hcovany2 hcovpriv2 hinsemp2 hinspur2 hinstri2 hcovpub2 hinscaid2 hinscare2 hinsva2 
-
-drop inc* rac* pred*
-//drop if inrange(empstatd,14,15) //drop armed forces?
-//drop if labforce==0  //drop if laborforce status is NA?
-
-//I had previously dropped laborforce==0 which was a mistake. It removes all of the children...when I do the collapse on the laborforce variable I need to just restrict to the age bins and ignore all else because the missing values are kids.
 
 
-****if we are doing this labor force analysis I guess I should drop armed forces? is there any reason not to do so? foreign born are about 9% of armed forces, ~30% of that are people born abroad to american parents, ~60% are naturalized citizens, and the rest are noncitizens. Detail below, note that there are discrepencies between my code of foreign and citizenship status, see the citizen variable editing procedure to understand why that might be the case (see how I code US territories); Please let me know if I should recode foreign born.
-/*
-	employment status [detailed version]
-foreign        n/a	at work  has job,   armed for  armed for  unemploye  not in la	Total
-		
-0  2,740,553	5,992,767    112,988     31,323        122    312,860  4,049,598	13,240,211 
-1    105,336	1,129,078     26,795      2,929         13     53,221    634,196	1,951,568 
-		
-Total  2,845,889	7,121,845    139,783     34,252        135    366,081  4,683,794	15,191,779 
-
-. tab citizen empstatd
-
-employment status [detailed version]
-citizenship status        n/a    at work  has job,   armed for  armed for  unemploye	not in la      Total
-			
-n/a  2,740,595  5,992,518    112,975     31,343        122    312,850	4,049,439 13,239,842 
-born abroad of americ     28,045     74,580      1,485        921          3      3,909	33,904    142,847 
-naturalized citizen     22,209    583,352     13,687      1,746          8     22,839	350,728    994,569 
-not a citizen     55,040    471,395     11,636        242          2     26,483	249,723    814,521 
-			
-Total  2,845,889  7,121,845    139,783     34,252        135    366,081	4,683,794 15,191,779 
-*/
 
 *place of origin recode
 gen pl_mexico=0
@@ -223,28 +201,7 @@ replace armedforces=1 if inrange(empstatd,14,15)
 //citizen 0 is NA, 1 is born abroad of american parents, 2 is naturalized citizen, 3 is not a citizen...please note that NA is not foreign born.
 //foreign born via nativity is not available so I construct from birthplace (bpl) into a binary
 
-/*ACS Editing Procedure for the citizen variable:
-CITIZEN (Citizen)
-YRIMMIG (Year of immigration)
-YRNATUR (Year naturalized)
-ACS Years: 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016
-ACS editing procedure:
-Starting in 2008, the ACS asked naturalized citizens what year they were naturalized (YRNATUR).
-If a person reports being born in the United Sates when asked their birthplace (BPL) but reports not being born in the U.S. when asked if they are a U.S. citizen (CITIZEN), CITIZEN will be replaced with "Born in the U.S." When this happens, QCITIZEN will show the value is allocated.
-If year of immigration (YRIMMIG) is one year after the survey year, YRIMMIG will be replaced with the survey year.
-If a person reports being born in Puerto Rico, Guam, Northern Marianas, or the Virgin Islands when asked their birthplace (BPL) and either does not have a response for when asked about their citizenship, says they are a citizen but does not specify what type, says they were born in the U.S., or says they are not a citizen, CITIZEN will be replaced with "Born in the Puerto Rico, etc." When this happens, QCITIZEN will show the value is allocated.
-If a person is foreign born (BPL) and either does not have a response for when asked about their citizenship, says they are a citizen but does not specify what type, says they are a citizen who was born in the U.S., or says they are a citizen who was born in Puerto Rico (CITIZEN), CITIZEN will be allocated based on their parents citizenship. If the person has a parent in the household who is US-born, CITIZEN will be replaced with "Born abroad of American parents." If the parent is a naturalized citizen, CITIZEN will be replaced with "Naturalized citizen." If the parent is not a citizen, CITIZEN will be replaced with "Not a citizen." When this happens, QCITIZEN will show the value is allocated. RELATE is used to determine parents:
-A person with value of "parent" in RELATE is the parent to the reference person or brother/sister.
-The reference person and spouse are the parents to the son/daughter or foster child.
-The son/daughter or foster child of the reference person are parents to grandchildren of the reference person.
-If after the previous edits, a person still has a value of "Yes" for being a citizen, but does not specify which type of citizen or is missing (CITIZEN), and year of immigration is equal to or after the year they were born, CITIZEN will be allocated - the allocated value will be drawn from another person with the same age, race, and ethnicity. If year of immigration is also missing or is prior to when a person was born, CITIZEN and YRIMMIG will be allocated jointly - these values will be drawn from another person with the same age, race, and ethnicity. When this happens, QCITIZEN and/or QYRIMM will show the values are allocated.
-If after the previous edits, a person indicates they are a citizen who was born in the U.S. or Puerto Rico but lists a foreign birthplace (BPL), and year of immigration is equal to or after the year they were born, CITIZEN will be allocated - the allocated value is drawn from another person of a similar age, race, and ethnicity. If year of immigration is also missing or is prior to when a person was born, CITIZEN and YRIMMIG will be allocated jointly from another person with a similar age, race, and ethnicity. When this happens, QCITIZEN and/or QYRIMM will show the values are allocated.
-If a person reports being born in Puerto Rico, Guam, Northern Marianas, or the Virgin Islands when asked their birthplace (BPL) and says they are a citizen who was born abroad to American parents or says they are a naturalized citizen, CITIZEN will be replaced with "Born in the Puerto Rico, etc." When this happens, QCITIZEN will show the value is allocated.
-If after the previous edits, a foreign-born (BPL) person still indicates being a naturalized citizen (CITIZEN), and year of immigration is after they year they were born and either the same year as the survey year or the year before the survey year, CITIZEN will be replaced with "Not a citizen." When this happens, QCITIZEN will show the value is allocated.
-If a person reports being a citizen and born in the U.S. and they current live in one of the 50 states (STATE) or they report being a citizen who was born in Puerto Rice and they currently live in Puerto Rico, YRIMMIG will be replaced with "Not in universe."
-For respondents who are in universe for having a year of immigration, if YRIMMIG is not reported or if it is before the year a person was born, YRIMMIG will be allocated from another person with a similar age, race, and ethnicity. When this happens, QYRIMM will show the value is allocated.
-Beginning in 2008, if a person reports their year of naturalization as prior to 1883, reports being a naturalized citizen but leaves the year blank, reports a year of naturalization before they were born, or reports a year of naturalization after the survey year, YRNATUR will be allocated from someone else with a similar age (AGE), race (RACE), and ethnicity (HISPAN).
-Beginning in 2008, if a person reports not being a U.S. citizen or being born in the U.S., U.S. territories, or abroad to U.S. parents (CITIZEN) and reports a value for year of naturalization, YRNATUR will be replaced with a missing value.*/
+
 tab bpl, m
 gen foreign=.
 replace foreign=0 if inrange(bpl, 1, 120)  //please note 100 to 120 are US territories
@@ -724,7 +681,7 @@ preserve
 drop if pov200==.
 collapse (sum) `v' kid_pov200  [pw=perwt], by(`geo')
 gen s_`v'=`v'/kid_pov200
-export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_200, modify) firstrow(var) keepcellfmt
 
 //histogram s_`v'
 //graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
@@ -739,7 +696,7 @@ preserve
 drop if pov200==.
 collapse (sum) `v' age5to17 [pw=perwt], by(`geo')
 gen s_`v'=`v'/age5to17
-export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_200, modify) firstrow(var) keepcellfmt
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_5to17, modify) firstrow(var) keepcellfmt
 
 //histogram s_`v'
 //graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
@@ -752,8 +709,8 @@ restore
 
 use clean_immigration
 
-foreach v in foreign foreign10yr foreign5yr pov200 pov200foreign kid_pov200 kid_foreignhh_noba kid_foreignhh_200pov kid_noeng_foreignhh kid_hh_c_foreign tw5_BAplus tw5_BAplus_foreign tw5_lessBA tw5_lessBA_foreign tw5_lessBA_foreign10yr tw5_lessBA_foreign5yr tw5_lessBA_noeng{
-import excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesbycpuma0010_5yr.xlsx", sheet("`v'") firstrow clear
+foreach v in {
+import excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesbygeoid_5yr.xlsx", sheet("`v'") firstrow clear
 summ s*,detail
 }
 
