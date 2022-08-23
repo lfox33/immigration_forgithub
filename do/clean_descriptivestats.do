@@ -34,16 +34,16 @@ replace denom_school=1 if school>0
 
 //generating a education denominator
 gen denom_educd=0
-replace denom_educd=1 if educd>0
+replace denom_educd=1 if educd>1
 
 //gen no education no school denominator for 25
 
 gen denom_noednosch25=0
-replace denom_noednosch25=1 if educd>0 & school>0 & age>24
+replace denom_noednosch25=1 if educd>1 & school>0 & age>24
 
 //gen no education no english denom for 25
 gen denom_noednoeng25=0
-replace denom_noednoeng25=1 if educd>0 & speakeng>0 & age>24
+replace denom_noednoeng25=1 if educd>1 & speakeng>0 & age>24
 
 gen denom_kidnoeng=0
 replace denom_kidnoeng=1 if inrange(age, 5, 17) & speakeng>0
@@ -542,13 +542,22 @@ export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\lessdet_foreign
 restore
 
 
-**# generate GEOID
+**# generate GEOID and pumatotract
 tostring puma, gen(strpuma) format(%05.0f)
 gen str3 strstatefip = string(statefip,"%02.0f")
 egen geoid=concat(strstatefip strpuma)
 destring geoid, replace
+gen str3 strcountyfip = string(countyfip, "%03.0f")
+egen pumatotract=concat(strstatefip strcountyfip strpuma)
+destring pumatotract,replace
 save clean_immigration, replace
 use clean_immigration
+
+
+
+
+
+
 **# gen shares 
 //Use the collapse command with person weights to calculate by PUMA: 
 *total pop 
@@ -657,6 +666,8 @@ restore
 }
 
 
+**# kid collapses by puma
+
 
 foreach geo of varlist geoid {
 foreach v of varlist kid_noeng_foreignhh {
@@ -705,6 +716,61 @@ restore
 }
 }
 
+**# kid collapses by pumatotract
+foreach geo of varlist pumatotract {
+foreach v of varlist kid_noeng_foreignhh {
+use clean_immigration
+preserve
+//county not identifiable from public use data is 0
+drop if countyfip==0  
+
+collapse (sum) `v' denom_kidnoeng  [pw=perwt], by(`geo')
+gen s_`v'=`v'/denom_kidnoeng
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'.pdf", replace
+restore
+
+}
+}
+
+///doing this variable both ways as instructed 5-17 and 5-17pov200
+foreach geo of varlist pumatotract {
+foreach v of varlist kid_foreignhh_200pov {
+use clean_immigration
+preserve
+//county not identifiable from public use data is 0
+drop if countyfip==0  
+drop if pov200==.
+collapse (sum) `v' kid_pov200  [pw=perwt], by(`geo')
+gen s_`v'=`v'/kid_pov200
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_200, modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
+restore
+
+}
+}
+foreach geo of varlist pumatotract {
+foreach v of varlist kid_foreignhh_200pov {
+use clean_immigration
+preserve
+//county not identifiable from public use data is 0
+drop if countyfip==0  
+drop if pov200==.
+collapse (sum) `v' age5to17 [pw=perwt], by(`geo')
+gen s_`v'=`v'/age5to17
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v'_5to17, modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
+restore
+
+}
+}
+
 **# summary stats
 
 use clean_immigration
@@ -735,3 +801,10 @@ Then use saved individual-level dataset to make state-level version.
 Make Excel table of all outcomes showing each state
 /*
 
+**# merge with tract
+import excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\2010_Census_Tract_to_2010_PUMA.xlsx", firstrow clear
+save tracttopuma
+use tracttopuma
+merge 1:m statefip countyfip puma using clean_immigration
+//drop if _merge!=3
+save pumatractmerge
