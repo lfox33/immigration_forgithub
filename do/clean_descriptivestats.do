@@ -153,6 +153,10 @@ replace age25to34=1 if inrange(age,25,34)
 gen age18to24=0
 replace age18to24=1 if inrange(age,18,24)
 
+//generating over 18
+gen age18plus=0
+replace age18plus=1 if age>18
+
 
 //create new education and work variable for lauren.
 ///I neeed to redo this if we aren't dropping NAs 
@@ -771,6 +775,22 @@ restore
 }
 }
 
+foreach geo of varlist pumatotract {
+foreach v of varlist age5to17 {
+use clean_immigration
+preserve
+//county not identifiable from public use data is 0
+drop if countyfip==0  
+drop if pov200==.
+collapse (sum) `v' [pw=perwt], by(`geo')
+export excel "S:\Hamilton_Data\2022\Tara_immigration\immigration\sharesby`geo'_5yr.xlsx", sheet(`v', modify) firstrow(var) keepcellfmt
+
+//histogram s_`v'
+//graph export "S:\Hamilton_Data\2022\Tara_immigration\immigration\data\histograms\`geo'_`v'_200.pdf", replace
+restore
+
+}
+}
 **# summary stats
 
 use clean_immigration
