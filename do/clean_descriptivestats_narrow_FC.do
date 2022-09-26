@@ -27,7 +27,9 @@ drop inc* rac* pred*
 
 //drop if school==0   //same issue here.generate a school denominator instead of dropping
 gen denom_school=0
-replace denom_school=1 if school>0
+replace denom_school=1 if school>0 
+
+//LF comment: school = 1 if respondent is not in school, school = 2 if respondent is in school, so I belive that this code should be: replace denom_school = 1 if school == 2.
 
 //generating a education denominator
 gen denom_educd=0
@@ -47,9 +49,11 @@ gen count=1
 gen age5to17=0
 replace age5to17=1 if inrange(age,5,17)
 
+
 //generating over 18
 gen age18plus=0
 replace age18plus=1 if age>18
+
 
 //create new education and work variable for lauren.
 ///I neeed to redo this if we aren't dropping NAs 
@@ -58,6 +62,8 @@ replace inschool=1 if school==2
 
 gen notinschool=0
 replace notinschool=1 if school==1
+
+//LF Comment: These dummies look good to go. 
 
 //yrimmig when 0 is NA
 //citizen 0 is NA, 1 is born abroad of american parents, 2 is naturalized citizen, 3 is not a citizen...please note that NA is not foreign born.
@@ -68,6 +74,9 @@ tab bpl, m
 gen foreign=.
 replace foreign=0 if inrange(bpl, 1, 120)  //please note 100 to 120 are US territories
 replace foreign=1 if inrange(bpl, 150, 999)
+
+//LF comment: bpl == 999 is if birthplace is missing. I don't know if you want include these people here. 
+
 tab foreign,m  //no missing should be ok.
 
 gen native=0
@@ -108,10 +117,12 @@ replace foreign5yr_nohcov=1 if foreign5yr==1 & nohcov==1
 gen dependent=0
 replace dependent=1 if inrange(age, 18, 22) & inrange(educd,2,81) & inschool==1
 
+//LF comment: The education variable on the IPUMS website specifies that a bachelor's degree is coded as 101, so it might be 2, 100.
+
 gen nondep5yrnoba18plus=0 
 replace nondep5yrnoba18plus=1 if age>18 & inrange(educd,2,81) & dependent!=1 & foreign5yr==1
 
-
+//LF comment: same education comment as above. 
 
 //keeping these because I think we might want to come back to this with different age groups.
 /*
@@ -169,6 +180,8 @@ destring pumatotract,replace
 save clean_immigration_narrow, replace
 use clean_immigration_narrow
 
+
+//LF comment: Looks good! 
 
 
 
